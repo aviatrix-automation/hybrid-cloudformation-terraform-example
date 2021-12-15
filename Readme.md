@@ -43,8 +43,8 @@ This documentation assumes AWS CLI and Terraform environments have been set up. 
 ## Deployment
 1. Clone this repository and change directory to the repository on disk
 ```
-git clone <yada>
-cd <yada>
+git clone https://github.com/aviatrix-automation/hybrid-cloudformation-terraform-example.git
+cd hybrid-cloudformation-terraform-example
 ```
 2. Create the CloudFormation stack based on the included template
 ```
