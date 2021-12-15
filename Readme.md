@@ -1,6 +1,6 @@
 # hybrid-cloudformation-terraform-example
 
-# Intro
+## Intro
 Some organizations already use CloudFormation in order to deploy AWS resources. As such they may have standardized workflows and templates for infrastructure like VPC's, Subnets and other AWS native components.
 Aviatrix only supports deployment of it's components via Terraform, which is cloud agnostic. These organizations might not be ready or willing to adopt Terraform for the deployment of all resources, both AWS and Aviatrix. This is especially true for VPC's where workloads reside. For deploying transit/firenet VPC's it is strongly advised to use the Aviatrix Terraform provider, as these VPC's are highly customized for their specific purpose.
 
