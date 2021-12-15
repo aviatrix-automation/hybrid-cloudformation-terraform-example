@@ -1,0 +1,192 @@
+    # Usage:
+    # Create:   aws cloudformation --region eu-central-1 create-stack --stack-name SpokeVPC --template-body file://spoke_vpc.yaml
+    # Delete:   aws cloudformation delete-stack --stack-name SpokeVPC
+    
+    # This template will:
+    #   Create a VPC with:
+    #       An Internet Gateway    
+    #       1 Public routing table (including default route to IGW)
+    #       2 Private routing tables, one for subnets in each AZ 
+    #       2 Public Subnets (attached to public route table)
+    #       4 Private Subnets (attached to private route tables)
+    
+Parameters:
+  VpcCidr:
+    Type: String
+    Default: 10.1.8.0/21
+    Description: Enter VPC CIDR
+
+Resources:
+  SpokeVPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      Tags:
+        - Key: Name
+          Value: SpokeVPC
+  
+  PublicSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref SpokeVPC
+      AvailabilityZone: eu-central-1a
+      CidrBlock: !Select [0, !Cidr [ !Ref VpcCidr, 2, 6 ]]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: GatewaySubnet          
+  
+  PublicSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref SpokeVPC
+      AvailabilityZone: eu-central-1b
+      CidrBlock: !Select [1, !Cidr [ !Ref VpcCidr, 2, 6 ]]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: HaGatewaySubnet              
+  
+  PrivateSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref SpokeVPC
+      AvailabilityZone: eu-central-1a
+      CidrBlock: !Select [1, !Cidr [ !Ref VpcCidr, 6, 8 ]]
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: Subnet1-az-a
+
+  PrivateSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref SpokeVPC
+      AvailabilityZone: eu-central-1b
+      CidrBlock: !Select [2, !Cidr [ !Ref VpcCidr, 6, 8 ]]
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: Subnet1-az-b   
+
+  PrivateSubnet3:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref SpokeVPC
+      AvailabilityZone: eu-central-1a
+      CidrBlock: !Select [3, !Cidr [ !Ref VpcCidr, 6, 8 ]]
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: Subnet2-az-a
+
+  PrivateSubnet4:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref SpokeVPC
+      AvailabilityZone: eu-central-1b
+      CidrBlock: !Select [4, !Cidr [ !Ref VpcCidr, 6, 8 ]]
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: Subnet2-az-b
+
+  InternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Join [_, [!Ref 'AWS::StackName']]
+        - Key: Network
+          Value: Public
+  
+  GatewayToInternet:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      VpcId: !Ref SpokeVPC
+      InternetGatewayId: !Ref InternetGateway
+  
+  PublicRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref SpokeVPC
+      Tags:
+        - Key: Network
+          Value: Public
+        - Key: Name
+          Value: Public              
+  
+  PublicRoute:
+    Type: 'AWS::EC2::Route'
+    DependsOn: GatewayToInternet
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  
+  PublicSubnet1RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+  
+  PublicSubnet2RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+  
+  PrivateRouteTableAzA:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref SpokeVPC
+      Tags:
+        - Key: Network
+          Value: Private
+        - Key: Name
+          Value: Private_AZ_A
+
+  PrivateRouteTableAzB:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref SpokeVPC
+      Tags:
+        - Key: Network
+          Value: Private
+        - Key: Name
+          Value: Private_AZ_B              
+
+  PrivateSubnet1RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTableAzA
+  
+  PrivateSubnet2RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTableAzB
+
+  PrivateSubnet3RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet3
+      RouteTableId: !Ref PrivateRouteTableAzA
+
+  PrivateSubnet4RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet4
+      RouteTableId: !Ref PrivateRouteTableAzB
+
+Outputs:
+  VpcId:
+    Description: Outputs the ID of the created VPC
+    Value: !GetAtt SpokeVPC.VpcId
+  GatewaySubnet:
+    Description: Outputs the CIDR of the Aviatrix gateway subnet
+    Value: !Select [0, !Cidr [ !Ref VpcCidr, 2, 6 ]]
+  HaGatewaySubnet:
+    Description: Outputs the CIDR of the Aviatrix HA gateway subnet
+    Value: !Select [1, !Cidr [ !Ref VpcCidr, 2, 6 ]]
